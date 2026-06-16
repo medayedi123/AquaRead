@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AquaRead — Irrigation Need Predictor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Literata:ital,wght@0,400;0,600;1,400&family=DM+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@400;500;600&display=swap"
+    rel="stylesheet"
+  />
+  <style>
+    /* ---------- tokens ---------- */
+    :root {
+      --soil:   #3b2f1e;
+      --bark:   #5c3d1e;
+      --straw:  #c9a84c;
+      --sage:   #6b8f71;
+      --canopy: #2d5a3d;
+      --mist:   #e8f0e9;
+      --paper:  #f5f1eb;
+      --ink:    #1a1410;
+      --dust:   #9e8f7a;
+
+      --low-col:    #6b8f71;
+      --med-col:    #c9a84c;
+      --high-col:   #b94b3a;
+
+      --radius: 6px;
+      --mono: "DM Mono", monospace;
+      --serif: "Literata", Georgia, serif;
+      --sans: "Plus Jakarta Sans", system-ui, sans-serif;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--paper);
+      color: var(--ink);
+      font-family: var(--sans);
+      font-size: 15px;
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+
+    /* ---------- header ---------- */
+    header {
+      background: var(--canopy);
+      color: #fff;
+      padding: 0 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 64px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      border-bottom: 3px solid var(--straw);
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .logo-icon {
+      width: 34px;
+      height: 34px;
+    }
+
+    .logo-text {
+      font-family: var(--serif);
+      font-size: 1.35rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+
+    .logo-sub {
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      color: rgba(255,255,255,0.55);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      display: block;
+      margin-top: -3px;
+    }
+
+    .header-badge {
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.2);
+      color: rgba(255,255,255,0.8);
+      padding: 4px 10px;
+      border-radius: 20px;
+      letter-spacing: 0.05em;
+    }
+
+    /* ---------- hero ---------- */
+    .hero {
+      background: var(--canopy);
+      color: #fff;
+      padding: 3.5rem 2rem 4rem;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image:
+        radial-gradient(circle at 20% 80%, rgba(107,143,113,0.3) 0%, transparent 50%),
+        radial-gradient(circle at 80% 20%, rgba(201,168,76,0.15) 0%, transparent 50%);
+      pointer-events: none;
+    }
+
+    /* field-line texture — purely CSS, no images */
+    .hero-lines {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0.05;
+      background-image: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 28px,
+        rgba(255,255,255,0.8) 28px,
+        rgba(255,255,255,0.8) 29px
+      );
+    }
+
+    .hero h1 {
+      font-family: var(--serif);
+      font-size: clamp(2rem, 5vw, 3.2rem);
+      font-weight: 600;
+      line-height: 1.15;
+      max-width: 640px;
+      margin: 0 auto 1rem;
+      position: relative;
+    }
+
+    .hero h1 em {
+      font-style: italic;
+      color: var(--straw);
+    }
+
+    .hero p {
+      font-size: 1rem;
+      color: rgba(255,255,255,0.72);
+      max-width: 480px;
+      margin: 0 auto;
+      position: relative;
+    }
+
+    /* ---------- main layout ---------- */
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 2.5rem 1.5rem 4rem;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2rem;
+      align-items: start;
+    }
+
+    @media (max-width: 680px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+
+    /* ---------- card ---------- */
+    .card {
+      background: #fff;
+      border: 1px solid #ddd5c8;
+      border-radius: var(--radius);
+      padding: 1.75rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+
+    .card-title {
+      font-family: var(--serif);
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin-bottom: 0.3rem;
+      color: var(--bark);
+    }
+
+    .card-desc {
+      font-size: 0.82rem;
+      color: var(--dust);
+      margin-bottom: 1.5rem;
+      line-height: 1.5;
+    }
+
+    /* ---------- form ---------- */
+    .field {
+      margin-bottom: 1.1rem;
+    }
+
+    .field label {
+      display: block;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--soil);
+      margin-bottom: 5px;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }
+
+    .field .hint {
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      color: var(--dust);
+      margin-bottom: 5px;
+    }
+
+    .field input[type="number"],
+    .field select {
+      width: 100%;
+      padding: 8px 11px;
+      border: 1.5px solid #d0c8bc;
+      border-radius: var(--radius);
+      font-family: var(--sans);
+      font-size: 0.9rem;
+      background: var(--paper);
+      color: var(--ink);
+      transition: border-color 0.15s;
+      appearance: none;
+    }
+
+    .field input[type="number"]:focus,
+    .field select:focus {
+      outline: none;
+      border-color: var(--sage);
+      background: #fff;
+    }
+
+    /* range slider */
+    .range-wrap {
+      position: relative;
+    }
+
+    .range-wrap input[type="range"] {
+      width: 100%;
+      accent-color: var(--sage);
+      cursor: pointer;
+    }
+
+    .range-val {
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      color: var(--canopy);
+      font-weight: 500;
+      text-align: right;
+      display: block;
+      margin-top: 2px;
+    }
+
+    .divider {
+      border: none;
+      border-top: 1px dashed #d0c8bc;
+      margin: 1.25rem 0;
+    }
+
+    .submit-btn {
+      width: 100%;
+      padding: 12px;
+      background: var(--canopy);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius);
+      font-family: var(--sans);
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      letter-spacing: 0.02em;
+      transition: background 0.2s, transform 0.1s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .submit-btn:hover { background: #1f3f2b; }
+    .submit-btn:active { transform: scale(0.99); }
+    .submit-btn:disabled {
+      background: #9db89e;
+      cursor: not-allowed;
+    }
+
+    .submit-btn .spinner {
+      display: none;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255,255,255,0.4);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      margin: 0 auto;
+    }
+
+    .submit-btn.loading .btn-text { display: none; }
+    .submit-btn.loading .spinner { display: block; }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ---------- result panel ---------- */
+    .result-panel {
+      display: none;
+      animation: fadeUp 0.35s ease;
+    }
+
+    .result-panel.visible { display: block; }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .need-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 16px 6px 10px;
+      border-radius: 30px;
+      font-weight: 600;
+      font-size: 1.1rem;
+      margin-bottom: 1rem;
+    }
+
+    .need-badge.low    { background: #e8f2ea; color: var(--low-col); }
+    .need-badge.medium { background: #fdf3dc; color: #8a6a10; }
+    .need-badge.high   { background: #fde8e6; color: var(--high-col); }
+
+    .need-badge .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+    .need-badge.low    .dot { background: var(--low-col); }
+    .need-badge.medium .dot { background: var(--straw); }
+    .need-badge.high   .dot { background: var(--high-col); }
+
+    .result-summary {
+      font-family: var(--serif);
+      font-size: 0.97rem;
+      line-height: 1.65;
+      color: var(--ink);
+      margin-bottom: 1.25rem;
+    }
+
+    /* bar chart */
+    .prob-bars { margin: 1.25rem 0; }
+
+    .prob-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 9px;
+      font-size: 0.8rem;
+    }
+
+    .prob-label {
+      width: 56px;
+      font-weight: 600;
+      font-family: var(--mono);
+      font-size: 0.75rem;
+    }
+
+    .prob-track {
+      flex: 1;
+      background: #eee;
+      border-radius: 3px;
+      height: 8px;
+      overflow: hidden;
+    }
+
+    .prob-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 0.6s cubic-bezier(0.25, 1, 0.5, 1);
+      width: 0%;
+    }
+
+    .prob-fill.low    { background: var(--low-col); }
+    .prob-fill.medium { background: var(--straw); }
+    .prob-fill.high   { background: var(--high-col); }
+
+    .prob-pct {
+      width: 38px;
+      text-align: right;
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      color: var(--dust);
+    }
+
+    /* tip strip */
+    .tip-strip {
+      background: var(--mist);
+      border-left: 3px solid var(--sage);
+      border-radius: 0 var(--radius) var(--radius) 0;
+      padding: 10px 14px;
+      font-size: 0.83rem;
+      color: var(--canopy);
+      line-height: 1.55;
+    }
+
+    .tip-strip strong {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+
+    /* ---------- how it works ---------- */
+    .how {
+      margin-top: 3rem;
+      padding-top: 2rem;
+      border-top: 1px dashed #ccc4b7;
+    }
+
+    .how h2 {
+      font-family: var(--serif);
+      font-size: 1.15rem;
+      color: var(--bark);
+      margin-bottom: 1rem;
+    }
+
+    .steps {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .step {
+      flex: 1;
+      min-width: 180px;
+      background: #fff;
+      border: 1px solid #ddd5c8;
+      border-radius: var(--radius);
+      padding: 1rem 1.1rem;
+    }
+
+    .step-num {
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      color: var(--straw);
+      font-weight: 500;
+      letter-spacing: 0.05em;
+      margin-bottom: 5px;
+    }
+
+    .step p {
+      font-size: 0.82rem;
+      color: var(--dust);
+      line-height: 1.55;
+    }
+
+    .step strong { color: var(--ink); }
+
+    /* ---------- footer ---------- */
+    footer {
+      text-align: center;
+      padding: 1.5rem;
+      font-size: 0.75rem;
+      color: var(--dust);
+      border-top: 1px solid #ddd5c8;
+      font-family: var(--mono);
+    }
+
+    /* ---------- error state ---------- */
+    .error-msg {
+      background: #fde8e6;
+      border-left: 3px solid var(--high-col);
+      border-radius: 0 var(--radius) var(--radius) 0;
+      padding: 10px 14px;
+      font-size: 0.83rem;
+      color: #7a1f15;
+      margin-bottom: 1rem;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ====== HEADER ====== -->
+<header>
+  <div class="logo">
+    <svg class="logo-icon" viewBox="0 0 34 34" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="17" cy="17" r="17" fill="rgba(255,255,255,0.12)" />
+      <!-- water drop -->
+      <path d="M17 6 C17 6, 10 16, 10 21 a7 7 0 0 0 14 0 C24 16, 17 6, 17 6z" fill="#6b8f71" opacity="0.9"/>
+      <!-- soil line -->
+      <line x1="8" y1="28" x2="26" y2="28" stroke="#c9a84c" stroke-width="1.5" stroke-linecap="round"/>
+      <!-- small roots -->
+      <line x1="14" y1="28" x2="12" y2="31" stroke="#c9a84c" stroke-width="1" stroke-linecap="round"/>
+      <line x1="17" y1="28" x2="17" y2="32" stroke="#c9a84c" stroke-width="1" stroke-linecap="round"/>
+      <line x1="20" y1="28" x2="22" y2="31" stroke="#c9a84c" stroke-width="1" stroke-linecap="round"/>
+    </svg>
+    <div>
+      <span class="logo-text">AquaRead</span>
+      <span class="logo-sub">Irrigation Intelligence</span>
+    </div>
+  </div>
+  <span class="header-badge">AI · 10k field records</span>
+</header>
+
+<!-- ====== HERO ====== -->
+<div class="hero">
+  <div class="hero-lines"></div>
+  <h1>Know before you water.<br/><em>Save what the soil already has.</em></h1>
+  <p>Enter your field conditions and get an instant irrigation recommendation backed by real agronomic data.</p>
+</div>
+
+<!-- ====== MAIN ====== -->
+<div class="container">
+  <div class="grid">
+
+    <!-- LEFT: input form -->
+    <div class="card">
+      <p class="card-title">Field Conditions</p>
+      <p class="card-desc">Fill in what you know. The model works with as little or as much as you give it.</p>
+
+      <!-- Soil -->
+      <div class="field">
+        <label>Soil Type</label>
+        <select id="soil_type">
+          <option value="Clay">Clay</option>
+          <option value="Loamy" selected>Loamy</option>
+          <option value="Sandy">Sandy</option>
+          <option value="Silt">Silt</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>Soil Moisture <span class="hint">current reading, %</span></label>
+        <div class="range-wrap">
+          <input type="range" id="soil_moisture" min="8" max="65" step="0.5" value="30" oninput="updateVal('soil_moisture','soil_moisture_val','%')" />
+          <span class="range-val" id="soil_moisture_val">30%</span>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Crop Type</label>
+        <select id="crop_type">
+          <option value="Cotton">Cotton</option>
+          <option value="Maize">Maize</option>
+          <option value="Potato">Potato</option>
+          <option value="Rice" selected>Rice</option>
+          <option value="Sugarcane">Sugarcane</option>
+          <option value="Wheat">Wheat</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>Growth Stage</label>
+        <select id="growth_stage">
+          <option value="Sowing">Sowing</option>
+          <option value="Vegetative" selected>Vegetative</option>
+          <option value="Flowering">Flowering</option>
+          <option value="Harvest">Harvest</option>
+        </select>
+      </div>
+
+      <hr class="divider" />
+
+      <div class="field">
+        <label>Temperature <span class="hint">°C</span></label>
+        <div class="range-wrap">
+          <input type="range" id="temperature" min="12" max="42" step="0.5" value="28" oninput="updateVal('temperature','temp_val','°C')" />
+          <span class="range-val" id="temp_val">28°C</span>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Humidity <span class="hint">%</span></label>
+        <div class="range-wrap">
+          <input type="range" id="humidity" min="25" max="95" step="1" value="60" oninput="updateVal('humidity','hum_val','%')" />
+          <span class="range-val" id="hum_val">60%</span>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Recent Rainfall <span class="hint">mm, last 30 days</span></label>
+        <div class="range-wrap">
+          <input type="range" id="rainfall" min="0" max="2500" step="10" value="800" oninput="updateVal('rainfall','rain_val','mm')" />
+          <span class="range-val" id="rain_val">800mm</span>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Previous Irrigation <span class="hint">mm, last application</span></label>
+        <div class="range-wrap">
+          <input type="range" id="prev_irrigation" min="0" max="120" step="1" value="50" oninput="updateVal('prev_irrigation','prev_val','mm')" />
+          <span class="range-val" id="prev_val">50mm</span>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Season</label>
+        <select id="season">
+          <option value="Kharif" selected>Jun–Nov</option>
+          <option value="Rabi">Nov–Apr</option>
+          <option value="Zaid">Apr–Jun</option>
+        </select>
+      </div>
+
+      <button class="submit-btn" id="predict-btn" onclick="runPrediction()">
+        <span class="btn-text">Predict Irrigation Need</span>
+        <span class="spinner"></span>
+      </button>
+    </div>
+
+    <!-- RIGHT: result -->
+    <div>
+      <div class="card result-panel" id="result-panel">
+        <p class="card-title">Prediction Result</p>
+
+        <div id="result-error" class="error-msg" style="display:none"></div>
+
+        <div id="result-badge"></div>
+
+        <p class="result-summary" id="result-summary"></p>
+
+        <div class="prob-bars" id="prob-bars">
+          <div class="prob-row">
+            <span class="prob-label">Low</span>
+            <div class="prob-track"><div class="prob-fill low" id="bar-low"></div></div>
+            <span class="prob-pct" id="pct-low">—</span>
+          </div>
+          <div class="prob-row">
+            <span class="prob-label">Medium</span>
+            <div class="prob-track"><div class="prob-fill medium" id="bar-med"></div></div>
+            <span class="prob-pct" id="pct-med">—</span>
+          </div>
+          <div class="prob-row">
+            <span class="prob-label">High</span>
+            <div class="prob-track"><div class="prob-fill high" id="bar-high"></div></div>
+            <span class="prob-pct" id="pct-high">—</span>
+          </div>
+        </div>
+
+        <div class="tip-strip" id="tip-strip"></div>
+      </div>
+
+      <!-- placeholder when no prediction yet -->
+      <div class="card" id="placeholder-card" style="color: var(--dust); font-size:0.88rem; line-height:1.7;">
+        <p class="card-title" style="color:var(--dust); font-weight:400;">Awaiting your field data…</p>
+        <p>Fill in the conditions on the left and click <strong style="color:var(--bark)">Predict</strong> to get a recommendation.
+        The model weighs soil moisture, temperature, rainfall, and crop stage to decide how much water your field needs.</p>
+        <br />
+        <p style="font-family:var(--mono); font-size:0.75rem; color:#b0a898;">Trained on 10,000 agricultural records across four soil types, six crops, and three growing seasons.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- How it works -->
+  <div class="how">
+    <h2>How the prediction works</h2>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">01 / INPUT</div>
+        <p><strong>You describe your field.</strong> Soil moisture, crop type, recent rain, and a few other conditions that actually move the needle.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">02 / MODEL</div>
+        <p><strong>AI predicts</strong> from 10,000 real field records — weighing each factor the way an agronomist would.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">03 / RESULT</div>
+        <p><strong>You get a clear level</strong> — Low, Medium, or High — plus a plain-language explanation and a confidence breakdown.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer>AquaRead · built with real field data · not a substitute for local agronomic advice</footer>
+
+<script src="script.js"></script>
+</body>
+</html>
