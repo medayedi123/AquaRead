@@ -74,6 +74,10 @@ To make it more useful for farmers, I plan to:
 
 ---
 
+## Credit
+This project was built with the support of AI tools, which helped speed up the design of the HTML structure and assisted in developing most of the JavaScript logic. AI was used as a coding companion to generate ideas, debug issues, and optimize parts of the implementation, while the final decisions, customization, and overall direction of the project remained guided by the developer.
+
+---
 ## Files
 
 ```
